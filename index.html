@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شطرنج نهائي كامل</title>
+<style>
+body { font-family: Arial; display: flex; flex-direction: column; align-items: center; background:#f0f0f0; }
+h1 { margin:10px; font-size:18px; text-align:center; }
+#chessboard { display: grid; grid-template-columns: repeat(8,50px); grid-template-rows: repeat(8,50px); border:2px solid #333; }
+.square { width:50px; height:50px; display:flex; justify-content:center; align-items:center; font-size:35px; cursor:pointer; }
+.light { background:#f0d9b5; } .dark { background:#b58863; }
+.selected { outline:2px solid red; }
+</style>
+</head>
+<body>
+<h1>شطرنج نهائي كامل</h1>
+<div id="chessboard"></div>
+<script>
+const board=document.getElementById('chessboard');
+let selectedSquare=null;
+let currentTurn='white';
+
+let initialBoard=[
+['♜','♞','♝','♛','♚','♝','♞','♜'],
+['♟','♟','♟','♟','♟','♟','♟','♟'],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['♙','♙','♙','♙','♙','♙','♙','♙'],
+['♖','♘','♗','♕','♔','♗','♘','♖']
+];
+
+function isWhite(p){ return p && '♙♖♘♗♕♔'.includes(p); }
+function isBlack(p){ return p && '♟♜♞♝♛♚'.includes(p); }
+
+function getKingPosition(color){
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+        if(color==='white' && initialBoard[r][c]==='♔') return [r,c];
+        if(color==='black' && initialBoard[r][c]==='♚') return [r,c];
+    }
+    return null;
+}
+
+function inCheck(color){
+    const [kr,kc]=getKingPosition(color);
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+        const piece=initialBoard[r][c]; if(!piece) continue;
+        if(color==='white' && isBlack(piece) && validMove(piece,r,c,kr,kc,true)) return true;
+        if(color==='black' && isWhite(piece) && validMove(piece,r,c,kr,kc,true)) return true;
+    }
+    return false;
+}
+
+function gameOver(){
+    if(!getKingPosition('white')){ alert("الملك الأسود فاز!"); return true; }
+    if(!getKingPosition('black')){ alert("الملك الأبيض فاز!"); return true; }
+    return false;
+}
+
+// اختبار إذا كانت الحركة ستعرض الملك للخطر
+function testMove(piece,sr,sc,tr,tc){
+    const target=initialBoard[tr][tc];
+    initialBoard[tr][tc]=piece;
+    initialBoard[sr][sc]='';
+    const check=inCheck(currentTurn);
+    initialBoard[sr][sc]=piece;
+    initialBoard[tr][tc]=target;
+    return check;
+}
+
+function validMove(piece,sr,sc,tr,tc,ignoreCheck=false){
+    if(!piece) return false;
+    const target=initialBoard[tr][tc];
+    if(isWhite(piece) && isWhite(target)) return false;
+    if(isBlack(piece) && isBlack(target)) return false;
+    const dr=tr-sr, dc=tc-sc;
+    function clearPath(){
+        const stepR=dr===0?0:dr/Math.abs(dr);
+        const stepC=dc===0?0:dc/Math.abs(dc);
+        let r=sr+stepR, c=sc+stepC;
+        while(r!==tr || c!==tc){
+            if(initialBoard[r][c]!=='') return false; r+=stepR; c+=stepC;
+        }
+        return true;
+    }
+    let valid=false;
+    switch(piece){
+        case '♙': valid=(dr===-1&&dc===0&&!target)||(dr===-1&&Math.abs(dc)===1 && target && isBlack(target)); break;
+        case '♟': valid=(dr===1&&dc===0&&!target)||(dr===1&&Math.abs(dc)===1 && target && isWhite(target)); break;
+        case '♖': case '♜': valid=(dr===0||dc===0)&&clearPath(); break;
+        case '♘': case '♞': valid=(Math.abs(dr)===2&&Math.abs(dc)===1)||(Math.abs(dr)===1&&Math.abs(dc)===2); break;
+        case '♗': case '♝': valid=Math.abs(dr)===Math.abs(dc)&&clearPath(); break;
+        case '♕': case '♛': valid=(Math.abs(dr)===Math.abs(dc)||dr===0||dc===0)&&clearPath(); break;
+        case '♔': case '♚': 
+            valid=Math.abs(dr)<=1&&Math.abs(dc)<=1;
+            if(!ignoreCheck && dr===0 && dc===2){ if(initialBoard[sr][sc+1]==='' && initialBoard[sr][7]!==''){ valid=true; } }
+            if(!ignoreCheck && dr===0 && dc===-2){ if(initialBoard[sr][sc-1]==='' && initialBoard[sr][0]!==''){ valid=true; } }
+            break;
+    }
+    if(!ignoreCheck && valid) return !testMove(piece,sr,sc,tr,tc);
+    return valid;
+}
+
+function createBoard(){
+    board.innerHTML='';
+    let rows=[...Array(8).keys()];
+    if(window.innerWidth>window.innerHeight) rows=rows.reverse();
+    for(let i of rows) for(let j=0;j<8;j++){
+        const square=document.createElement('div');
+        square.classList.add('square');
+        square.classList.add((i+j)%2===0?'light':'dark');
+        square.dataset.row=i; square.dataset.col=j;
+        square.textContent=initialBoard[i][j]||'';
+
+        square.addEventListener('click',()=>{
+            if(gameOver()) return;
+            const sr=selectedSquare?parseInt(selectedSquare.dataset.row):null;
+            const sc=selectedSquare?parseInt(selectedSquare.dataset.col):null;
+            const tr=parseInt(square.dataset.row);
+            const tc=parseInt(square.dataset.col);
+
+            if(selectedSquare){
+                const piece=initialBoard[sr][sc];
+                if((currentTurn==='white' && isWhite(piece)) || (currentTurn==='black' && isBlack(piece))){
+                    if(validMove(piece,sr,sc,tr,tc)){
+                        if(piece==='♔' && tc-sc===2){ initialBoard[sr][sc+1]=initialBoard[sr][7]; initialBoard[sr][7]=''; }
+                        if(piece==='♔' && tc-sc===-2){ initialBoard[sr][sc-1]=initialBoard[sr][0]; initialBoard[sr][0]=''; }
+                        initialBoard[tr][tc]=piece; initialBoard[sr][sc]='';
+                        if(piece==='♙' && tr===0) initialBoard[tr][tc]='♕';
+                        if(piece==='♟' && tr===7) initialBoard[tr][tc]='♛';
+                        currentTurn=currentTurn==='white'?'black':'white';
+                    }
+                }
+                selectedSquare.classList.remove('selected');
+                selectedSquare=null;
+                createBoard();
+            }else if(initialBoard[tr][tc]!==''){
+                const piece=initialBoard[tr][tc];
+                if((currentTurn==='white' && isWhite(piece)) || (currentTurn==='black' && isBlack(piece))){
+                    selectedSquare=square;
+                    square.classList.add('selected');
+                }
+            }
+        });
+        board.appendChild(square);
+    }
+}
+
+window.addEventListener('resize',createBoard);
+createBoard();
+</script>
+</body>
+</html>
